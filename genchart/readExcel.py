@@ -4,11 +4,25 @@ from datetime import datetime
 from datetime import timedelta
 import numpy as np
 import matplotlib.pyplot as plt
+ 
+
+configfile = open('config.ini', 'r')
+lines = configfile.readlines()
+
+for line in lines:
+    data = line.strip();
+    field,value = data.split('=',1)
+configfile.close()
 
 
-df = pandas.read_excel('C:\\coding\\ProjectProgress.xlsx', header=None)
+df = pandas.read_excel(value.strip(), header=None)
 
 
+cols = len(df.columns)
+matrix = math.ceil(math.sqrt(cols))  
+
+now = datetime.now()
+today = now.strftime("%Y-%m-%d")
 
 def genchart(col):
     actual = []
@@ -39,12 +53,6 @@ def genchart(col):
 
         row = row + 1
         
-    #    print df.loc[row,0]
-        
-#    print project, fd, td
-#    print actual 
-#    print actualdate
-#    print wks
 
     rate = int( (100.0/wks))
     burndown = [rate * x for x in range(wks+1)]
@@ -52,19 +60,21 @@ def genchart(col):
     estimate['date']= pandas.date_range(fd,td,freq='7D')
     print estimate
 
-    plt.subplot(2,2,col+1)
+    plt.subplot(matrix,matrix,col+1)
 
-    plt.xticks(rotation=45)
+
+    plt.xticks(rotation=45, ha="right")
     plt.title(project)
     plt.ylabel('Completion %')
-    #plt.plot( 'date','actual',data=actdf, label='Actual')
+
     plt.plot( 'date', 'estimated', data=estimate, label='Estimated')
     plt.plot( actualdate, actual, label='Actual')
+    plt.axvline(x=today,color='r')
     plt.legend()
 #    plt.show()
 
 
-for x in range(len(df.columns)):
+for x in range(cols):
     genchart(x)
 
 plt.subplots_adjust(hspace=0.7, wspace=0.5)
