@@ -1,0 +1,11 @@
+select vsmart_id, term_type, term_value ,
+	(
+		select '<tr><td>'+tier + '</td><td>' + installment + '</td><td>'+ cast(bv_factor as varchar) + '</td><td>'+convert(varchar(10),effective_from,21)+'</td><td>'+ convert(varchar(10),effective_to,21)+'</td></tr>' 
+		from [icompare].[import_vsmart_bv] bv1
+		where bv1.vsmart_id = bv2.vsmart_id and bv1.term_type = bv2.term_type and bv1.term_value =  bv2.term_value
+		order by bv1.vsmart_id, bv1.term_type, bv1.term_value, bv1.installment
+		for xml path(''),type).value('(./text())[1]','nvarchar(max)'  
+	) bv
+from icompare.import_vsmart_bv bv2
+group by bv2.vsmart_id, bv2.term_type, bv2.term_value
+order by bv2.vsmart_id, bv2.term_type, bv2.term_value

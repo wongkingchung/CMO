@@ -21,6 +21,7 @@ df = pandas.read_excel(value.strip(), header=None)
 cols = len(df.columns)
 matrix = math.ceil(math.sqrt(cols))  
 
+
 now = datetime.now()
 today = now.strftime("%Y-%m-%d")
 
@@ -42,17 +43,19 @@ def genchart(col):
             wks = (td - fd).days/7
 
         if row > 2 :
-            fig = df.loc[row,col]
-            if not math.isnan(fig):
-                actual.append(fig)
-                nxtday = fd + timedelta(days=7*d)
-                actualdate.append(nxtday)
-                d = d + 1
-            else:
+            try:
+                fig = df.loc[row,col]
+                if not math.isnan(fig):
+                    actual.append(fig)
+                    nxtday = fd + timedelta(days=7*d)
+                    actualdate.append(nxtday)
+                    d = d + 1
+                else:
+                    scan = False
+            except:
                 scan = False
-
         row = row + 1
-        
+        print row
 
     rate = int( (100.0/wks))
     burndown = [rate * x for x in range(wks+1)]
@@ -61,7 +64,7 @@ def genchart(col):
     print estimate
 
     plt.subplot(matrix,matrix,col+1)
-
+ 
 
     plt.xticks(rotation=45, ha="right")
     plt.title(project)
