@@ -9,6 +9,7 @@ import os
 import shutil
 import datetime
 import re
+from sendemail import sendmail
 
 minv = ''
 maxv = ''
@@ -25,6 +26,7 @@ server = config.get('DB','server')
 database = config.get('DB','database')
 username = config.get('DB','username')
 password = config.get('DB','password')
+schema = config.get('DB','schema')
 
 
 driver= '{ODBC Driver 13 for SQL Server}'
@@ -32,18 +34,19 @@ cnxn = pyodbc.connect('DRIVER='+driver+';PORT=1433;SERVER='+server+';PORT=1443;D
 cursor = cnxn.cursor()
 
 
+## import Basic Plan 
 req = urllib2.Request("https://appws.convoy.com.hk/vsmartClientConsultantAPI/GetJson.svc/LifeInsuranceProductBasicPlan?sid=cv1tiasd3l5md8kw")
 opener = urllib2.build_opener()
 f = opener.open(req)
 records = json.loads(f.read())
 
-SQLCommand = "truncate table icompare.import_vsmart_bv_sorting"
+SQLCommand = "truncate table " +schema+".import_vsmart_bv_sorting"
 cursor.execute(SQLCommand)
  
 for record in records:
 ##    print record['ProviderCode'], record['Internal Code']
 ##    SQLCommand = u"INSERT INTO icompare.vsmart_LifeInsuranceProductBasicPlanForiCompare (ProviderCode, InternalCode, AlternatedSchemeProductCode, ProductType, SubCategory, Provider, GeneralName, StatementName,termtype, termpaymentinyear, termpaymentinmonth, tier,installment,installmentyear,bvfactor,effectivefrom,effectiveto) VALUES ('" +record['ProviderCode'] + "','"+record['Internal Code'] + "','"+record['Product Type'] + "','"+ record['SubCategory'] +"','"+ record['Provider']+"','"+ record['General Name'] + "','"+ record['Statement Name'] + "','"+ record['Term Type'] + "','"+record['Term Payment In Year'] +"','"+record['Term Payment In Month'] + "','" + record['Tier'] + "','" + record['Installment'] + "'," + str(record['InstallmentYear']) + ","+ str(record['BV Factor']) +",'"+record['Effective From']+"','"+record['Effective To']+ "');" 
-    SQLCommand = "INSERT INTO icompare.import_vsmart_bv_sorting (id, installment, payterm, agemin, agemax, ccy, bvfactor, eff_from, eff_to, generalname,termtype, tier, productleveleffdate, prc) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    SQLCommand = "INSERT INTO " +schema+".import_vsmart_bv_sorting (id, installment, payterm, agemin, agemax, ccy, bvfactor, eff_from, eff_to, generalname,termtype, tier, productleveleffdate, prc) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 
 
 ##    minage = 0
@@ -117,38 +120,44 @@ for record in records:
     if record['Term Type'] == '':
         payterm = 0
 
-    print record['Internal Code'], record['InstallmentYear'],payterm, minage, maxage, ccy
+#    print record['Internal Code'], record['InstallmentYear'],payterm, minage, maxage, ccy
+    print 'importing basic plan.....' + record['Internal Code']
     cursor.execute(SQLCommand, record['Internal Code'], record['InstallmentYear'],payterm, minage, maxage, ccy,record['BV Factor'] , record['Effective From'],record['Effective To'], record['General Name'], record['Term Type'], record['Tier'], record['Product Level Effective Date'], record['Available for PRC Client'])
 
 cnxn.commit()
 
 
-##
-##req = urllib2.Request("https://appws.convoy.com.hk/vsmartClientConsultantAPI/GetJson.svc/LifeInsuranceProductRider?sid=cv1tiasd3l5md8kw")
-##opener = urllib2.build_opener()
-##f = opener.open(req)
-##records = json.loads(f.read())
-##
-##SQLCommand = "truncate table icompare.vsmart_LifeInsuranceProductRiderForiCompare"
-##cursor.execute(SQLCommand)
-## 
-##for record in records:
-##    SQLCommand = "INSERT INTO icompare.vsmart_LifeInsuranceProductRiderForiCompare (ProviderCode, InternalCode,Category, GeneralName,StatementName,AlternatedSchemeProductCode,Scheme,RiderFollowBasicPlan,RiderType,Tier,Installment,InstallmentYear,Promotion,ProductID,VariantId, Term, BVFactor, EffectiveFrom, EffectiveTo, TermType, TermPaymentInYear, TermMaxAge) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-##    cursor.execute(SQLCommand, record['ProviderCode'],record['Internal Code'],record['Category'], record['General Name'], record['Statement Name'], record['Alternated Scheme Product Code'], record['Scheme'],record['Rider Follow Basic Plan'],record['Rider Type'],record['Tier'],record['Installment'], record['InstallmentYear'], record['Promotion'],record['ProductID'],record['Variant Id'], record['Term'], record['BV Factor'], record['Effective From'],record['Effective To'], record['Term Type'],record['Term Payment In Year'], record['Term Max Age'])
-##cnxn.commit()
+## Import Riders
+req = urllib2.Request("https://appws.convoy.com.hk/vsmartClientConsultantAPI/GetJson.svc/LifeInsuranceProductRider?sid=cv1tiasd3l5md8kw")
+opener = urllib2.build_opener()
+f = opener.open(req)
+records = json.loads(f.read())
+
+SQLCommand = "truncate table " +schema+".vsmart_LifeInsuranceProductRiderForiCompare"
+cursor.execute(SQLCommand)
+ 
+for record in records:
+    SQLCommand = "INSERT INTO " +schema+".vsmart_LifeInsuranceProductRiderForiCompare (ProviderCode, InternalCode,Category, GeneralName,StatementName,AlternatedSchemeProductCode,Scheme,RiderFollowBasicPlan,RiderType,Tier,Installment,InstallmentYear,Promotion,ProductID,VariantId, Term, BVFactor, EffectiveFrom, EffectiveTo, TermType, TermPaymentInYear, TermMaxAge) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    print 'importing rider.....' + record['Internal Code']
+    cursor.execute(SQLCommand, record['ProviderCode'],record['Internal Code'],record['Category'], record['General Name'], record['Statement Name'], record['Alternated Scheme Product Code'], record['Scheme'],record['Rider Follow Basic Plan'],record['Rider Type'],record['Tier'],record['Installment'], record['InstallmentYear'], record['Promotion'],record['ProductID'],record['Variant Id'], record['Term'], record['BV Factor'], record['Effective From'],record['Effective To'], record['Term Type'],record['Term Payment In Year'], record['Term Max Age'])
+cnxn.commit()
 
 
-##
-##req = urllib2.Request("https://appws.convoy.com.hk/vsmartClientConsultantAPI/GetJson.svc/LifeInsuranceProductBasicRiderRelationship?sid=cv1tiasd3l5md8kw")
-##opener = urllib2.build_opener()
-##f = opener.open(req)
-##records = json.loads(f.read())
-##
-##SQLCommand = "truncate table icompare.vsmart_LifeInsuranceProductBasicRiderRelationshipForiCompare"
-##cursor.execute(SQLCommand)
-## 
-##for record in records:
-##    SQLCommand = "INSERT INTO icompare.vsmart_LifeInsuranceProductBasicRiderRelationshipForiCompare (RiderProviderCode, RiderProductID, RiderInternalCode,RiderAlternatedSchemeProductCode,RiderScheme,BasicPlanProviderCode,BasicPlanProductID,BasicPlanInternalCode,BasicPlanScheme) VALUES (?,?,?,?,?,?,?,?,?)"
-##    cursor.execute(SQLCommand, record['Rider ProviderCode'], record['Rider ProductID'],record['Rider Internal Code'], record['Rider Alternated Scheme Product Code'], record['Rider Scheme'],record['BasicPlan ProviderCode'], record['BasicPlan ProductID'], record['BasicPlan Internal Code'], record['BasicPlan Scheme'])
-##cnxn.commit()
+
+## Import Basic Plan and Riders Mappings
+req = urllib2.Request("https://appws.convoy.com.hk/vsmartClientConsultantAPI/GetJson.svc/LifeInsuranceProductBasicRiderRelationship?sid=cv1tiasd3l5md8kw")
+opener = urllib2.build_opener()
+f = opener.open(req)
+records = json.loads(f.read())
+
+SQLCommand = "truncate table " +schema+".vsmart_LifeInsuranceProductBasicRiderRelationshipForiCompare"
+cursor.execute(SQLCommand)
+ 
+for record in records:
+    SQLCommand = "INSERT INTO " +schema+".vsmart_LifeInsuranceProductBasicRiderRelationshipForiCompare (RiderProviderCode, RiderProductID, RiderInternalCode,RiderAlternatedSchemeProductCode,RiderScheme,BasicPlanProviderCode,BasicPlanProductID,BasicPlanInternalCode,BasicPlanScheme) VALUES (?,?,?,?,?,?,?,?,?)"
+    print 'importing rider mapping.....' + record['Rider Internal Code'] + ' - ' + record['BasicPlan Internal Code']
+    cursor.execute(SQLCommand, record['Rider ProviderCode'], record['Rider ProductID'],record['Rider Internal Code'], record['Rider Alternated Scheme Product Code'], record['Rider Scheme'],record['BasicPlan ProviderCode'], record['BasicPlan ProductID'], record['BasicPlan Internal Code'], record['BasicPlan Scheme'])
+cnxn.commit()
+
+sendmail('vSmart data has been uploaded.')
 
