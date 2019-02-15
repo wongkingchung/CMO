@@ -22,13 +22,12 @@ receiver = config.get('SMTP','receiver')
 sender = config.get('SMTP','sender')            
 subject = config.get('SMTP','subject')
 
-server = smtplib.SMTP(smtpserver, smtpport)
-server.ehlo()
-server.login(smtplogin, smtppassword)
-
 
 def sendmail(body):
 
+    server = smtplib.SMTP(smtpserver, smtpport)
+##    server.ehlo()
+    server.login(smtplogin, smtppassword)
      
     msg = MIMEMultipart() ##//used for define multipart message
     msg['From'] = sender
