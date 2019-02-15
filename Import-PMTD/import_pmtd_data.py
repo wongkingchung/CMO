@@ -27,8 +27,6 @@ schema = config.get('DB','schema')
 pmtdfilepath = config.get('PMTD','file')
 logpath = config.get('PMTD','logpath')
 
-##sheet = config.get('PMTD','sheet')
-##sheet2 = config.get('PMTD','sheet2')
 
 sheet = '2. PMTD Data'
 sheet2 = '3. Rider Data'
@@ -60,102 +58,55 @@ driver= '{ODBC Driver 13 for SQL Server}'
 cnxn = pyodbc.connect('DRIVER='+driver+';PORT=1433;SERVER='+server+';PORT=1443;DATABASE='+database+';UID='+username+';PWD='+ password)
 cursor = cnxn.cursor()
 
-## Reading 2. PMTD Data
-
 SQLCommand = ("DELETE "+schema+".import_pmtd_data;")
 cursor.execute(SQLCommand)
 
 
-#wb = openpyxl.load_workbook(pmtdfile, data_only=True)
-ws = wb[sheet]
-col_ended = False
-row_ended = False
-r=2
+def readExcelSheet(sheet, hr ):
+    ws = wb[sheet]
+    col_ended = False
+    row_ended = False
+    r = hr
 
-SQLCommand = "INSERT INTO "+schema+".import_pmtd_data (row, fieldname, fieldvalue) VALUES (?,?,?)"
+    SQLCommand = "INSERT INTO "+schema+".import_pmtd_data (row, fieldname, fieldvalue, sheet) VALUES (?,?,?,?)"
 
-try:
-    while not row_ended:
-        r = r + 1
-        c=1
-        fieldvalue = ws.cell(row=r, column=c).value
-        if fieldvalue == None:
-            row_ended = True
-        else:
-            col_ended = False
-            
-        while not col_ended:
-            row = r - 2
-            fieldname = ws.cell(row=2, column=c).value
-            fieldvalue = ws.cell(row=r, column=c).value 
-            c = c + 1
-
-            if fieldname == None:
-                col_ended = True
+    try:
+        while not row_ended:
+            r = r + 1
+            c=1
+            fieldvalue = ws.cell(row=r, column=c).value
+            if fieldvalue == None:
+                row_ended = True
             else:
-                print row, fieldname, fieldvalue
-#                fieldvalue = unicode(fieldvalue, 'utf-8')
-                cursor.execute(SQLCommand, row, fieldname, fieldvalue)
-#                SQLCommand = "INSERT INTO "+schema+".import_pmtd_data (row, fieldname, fieldvalue) VALUES (" + str(row) + ",N'"+fieldname+"',N'"+fieldvalue+"')"
-#                print SQLCommand
-#                cursor.execute(SQLCommand)
+                col_ended = False
+                
+            while not col_ended:
+                row = r - 2
+                fieldname = ws.cell(row=hr, column=c).value
+                fieldvalue = ws.cell(row=r, column=c).value 
+                c = c + 1
 
-        
-except Exception, error:
-    sendmail('There are errors in importing sheet 2. PMTD Data. Please contact IT.' + str(error))
-    print 'There is an error', str(error)
-    os._exit(0)
-        
-SQLCommand = "exec " + schema +".sp_update_pmtd_data"
-cursor.execute(SQLCommand)
-
-
-
-## Reading 3. Rider Data
-
-SQLCommand = ("DELETE "+schema+".import_pmtd_data;")
-cursor.execute(SQLCommand)
-
-ws = wb[sheet2]
-col_ended = False
-row_ended = False
-r=1
-
-SQLCommand = "INSERT INTO "+schema+".import_pmtd_data (row, fieldname, fieldvalue) VALUES (?,?,?)"
-
-try:
-    while not row_ended:
-        r = r + 1
-        c=1
-        fieldvalue = ws.cell(row=r, column=c).value
-        if fieldvalue == None:
-            row_ended = True
-        else:
-            col_ended = False
+                if fieldname == None:
+                    col_ended = True
+                else:
+                    print row, fieldname, fieldvalue, sheet
+                    cursor.execute(SQLCommand, row, fieldname, fieldvalue, sheet)
             
-        while not col_ended:
-            row = r - 2
-            fieldname = ws.cell(row=1, column=c).value
-            fieldvalue = ws.cell(row=r, column=c).value 
-            c = c + 1
+    except Exception, error:
+        sendmail('There are errors in importing sheet ' + sheet + '. Please contact IT.' + str(error))
+        print 'There is an error', str(error)
+        os._exit(0)
+            
+#    SQLCommand = "exec " + schema +".sp_update_pmtd_data"
+#    SQLCommand = "exec " + schema + sp
+#    cursor.execute(SQLCommand)
 
-            if fieldname == None:
-                col_ended = True
-            else:
-                print row, fieldname, fieldvalue
-                cursor.execute(SQLCommand, row, fieldname, fieldvalue)
-
-        
-except Exception, error:
-    sendmail('There are errors in importing sheet 3. Rider Data. Please contact IT.' + str(error))
-    print 'There is an error', str(error)
-    os._exit(0)
-        
-#SQLCommand = "exec " + schema +".sp_update_pmtd_data_Rider"
-#cursor.execute(SQLCommand)
-
+readExcelSheet(sheet,2,)
+readExcelSheet(sheet2,1)
+               
 
 cnxn.commit()
+cursor.close()
 
 wb.close()
 
