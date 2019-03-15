@@ -1,0 +1,513 @@
+/****** Object:  StoredProcedure [icomparev2].[sp_update_pmtd_data]    Script Date: 25/2/2019 14:24:34 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+ALTER PROCEDURE [icomparev2].[sp_update_pmtd_data]
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+-- add new icompare and vsmart product pairing mapping
+delete icomparev2.product_mapping
+insert into icomparev2.product_mapping (icompare_plan_id, vsmart_product_id)
+select plan_id, vsmart_id from 
+(
+	select a.fieldvalue as plan_id, b.fieldvalue as vsmart_id from
+	(
+	select row, fieldvalue from icomparev2.import_pmtd_data where fieldname ='plan_id' and sheet ='2. PMTD Data'
+	)a
+	inner join 
+	(
+	select row, fieldvalue from icomparev2.import_pmtd_data where fieldname in ('vsmart_product_id','vsmart_product_id (2)','vsmart_product_id (3)','vsmart_product_id (4)')  and sheet ='2. PMTD Data'
+	) b
+	on a.row = b.row and b.fieldvalue is not null
+) a where not exists (
+select * from icomparev2.product_mapping
+where icompare_plan_id = a.plan_id and vsmart_product_id = a.vsmart_id
+)
+
+
+-- update product_plan for the details
+update icomparev2.product_plan set type_id = a.type_id, display_name = a.display_name, display_name_zh = a.display_name_zh, brochure = a.brochure, brochure_zh = a.brochure_zh, tag_id = a.tag_id, last_update_date = getdate()
+from
+(
+
+/* 
+--	handle product library link 
+	select row, plan_id, insurer_name, d.insurer_id, display_name, display_name_zh, isnull(pl_brochure,brochure) as brochure , isnull(pl_brochure_zh,brochure_zh) brochure_zh, a.type_name, b.type_id,a.tag_name, a.tag_id
+	from (
+		select row, max(plan_id) as plan_id, max(insurer_name) as insurer_name, max(display_name) as display_name, max(display_name_zh) as display_name_zh, max(brochure) as brochure, max(brochure_zh) as brochure_zh, max(type_name) as type_name, max(tag_name) as tag_name, max(pl_brochure) as pl_brochure, max(pl_brochure_zh) as pl_brochure_zh, max(tag_id) as tag_id
+		from 
+		(
+			select row, 
+			case when fieldname ='plan_id' then fieldvalue else '' end as 'plan_id',
+			case when fieldname ='insurer_name' then fieldvalue else '' end as 'insurer_name',
+			case when fieldname ='display_name' then fieldvalue else '' end as 'display_name',
+			case when fieldname ='display_name_zh' then fieldvalue else '' end as 'display_name_zh',
+			case when replace(replace(fieldname,char(10),' '),char(13),' ') ='Brochure TC' then fieldvalue else null end as 'brochure_zh',
+			case when replace(replace(fieldname,char(10),' '),char(13),' ') ='Brochure EN' then fieldvalue else null end as 'brochure',
+			case when fieldname = 'PL_Brochure_TC' then fieldvalue else null end as 'pl_brochure_zh',
+			case when fieldname = 'PL_Brochure_EN' then fieldvalue else null end as 'pl_brochure',
+			case when fieldname ='type_name' then fieldvalue else '' end as 'type_name',
+			case when fieldname ='tag_name' then fieldvalue else '' end as 'tag_name',
+			case when fieldname ='tag_id' then fieldvalue else '' end as 'tag_id'
+			from  icomparev2.import_pmtd_data
+		) a
+		group by row
+	)a
+	left outer join icomparev2.type b on b.type_id > 100 and b.type_name = case when a.type_name ='Term Life' then 'life' else a.type_name end 
+--	left outer join icomparev2.tag c on c.tag_name = case a.tag_name when 'Term Life' then 'Term' when 'High End Medical' then 'high end' when 'CI Term Life' then 'ci term' when 'Top-up Medical' then 'top up'  else a.tag_name end
+	left outer join icomparev2.insurer d on d.name = case a.insurer_name when 'FT Life' then 'FTLife' when 'FWD' then 'FWD Life'  when 'Zurich' then 'Zurich International Life' when 'Generali' then 'Generali Life' else a.insurer_name end
+*/
+-- only principal's brochure link
+	select row, plan_id, insurer_name, d.insurer_id, display_name, display_name_zh, brochure, brochure_zh, a.type_name, b.type_id,a.tag_name, a.tag_id
+	from (
+		select row, max(plan_id) as plan_id, max(insurer_name) as insurer_name, max(display_name) as display_name, max(display_name_zh) as display_name_zh, max(brochure) as brochure, max(brochure_zh) as brochure_zh, max(type_name) as type_name, max(tag_name) as tag_name, max(tag_id) as tag_id
+		from 
+		(
+			select row, 
+			case when fieldname ='plan_id' then fieldvalue else '' end as 'plan_id',
+			case when fieldname ='insurer_name' then fieldvalue else '' end as 'insurer_name',
+			case when fieldname ='display_name' then fieldvalue else '' end as 'display_name',
+			case when fieldname ='display_name_zh' then fieldvalue else '' end as 'display_name_zh',
+			case when replace(replace(fieldname,char(10),' '),char(13),' ') ='Brochure TC' then fieldvalue else '' end as 'brochure_zh',
+			case when replace(replace(fieldname,char(10),' '),char(13),' ') ='Brochure EN' then fieldvalue else '' end as 'brochure',
+			case when fieldname ='type_name' then fieldvalue else '' end as 'type_name',
+			case when fieldname ='tag_name' then fieldvalue else '' end as 'tag_name',
+			case when fieldname ='tag_id' then fieldvalue else '' end as 'tag_id'
+			from  icomparev2.import_pmtd_data where sheet ='2. PMTD Data'
+		) a
+		group by row
+	)a
+	left outer join icomparev2.type b on b.type_id > 100 and b.type_name = case when a.type_name ='Term Life' then 'life' else a.type_name end 
+--	left outer join icomparev2.tag c on c.tag_name = case a.tag_name when 'Term Life' then 'Term' when 'High End Medical' then 'high end' when 'CI Term Life' then 'ci term' when 'Top-up Medical' then 'top up'  else a.tag_name end
+	left outer join icomparev2.insurer d on d.name = case a.insurer_name when 'FT Life' then 'FTLife' when 'FWD' then 'FWD Life'  when 'Zurich' then 'Zurich International Life' when 'Generali' then 'Generali Life' else a.insurer_name end
+ 
+) a
+where icomparev2.product_plan.plan_id = a.plan_id
+
+
+-- update plan_feature for suitable_for_education and suitable_for_retirement
+
+-- add new ones
+delete icomparev2.plan_feature where feature_name like 'suitable_for_education'
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select plan_id, 'suitable_for_education', education, 'D', 'text', 1, 'en' from 
+(
+	select row, max(plan_id) as plan_id, max(education) as education from 
+	(
+	select row, case when fieldname = 'plan_id' then fieldvalue else '' end as plan_id, case when fieldname='education' then case when fieldvalue = '-' then 'No' else 'Yes' end end as education 
+	from icomparev2.import_pmtd_data where fieldname in ('plan_id','education') and sheet ='2. PMTD Data'
+	) a
+	group by row
+) a where not exists (
+select * from icomparev2.plan_feature where feature_name = 'suitable_for_education' and language = 'en' and plan_id = a.plan_id 
+)
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select plan_id, 'suitable_for_education', education, 'D', 'text', 1, 'zh' from 
+(
+	select row, max(plan_id) as plan_id, max(education) as education from 
+	(
+	select row, case when fieldname = 'plan_id' then fieldvalue else '' end as plan_id, case when fieldname='education' then case when fieldvalue = '-' then N'不是' else N'是' end end as education 
+	from icomparev2.import_pmtd_data where fieldname in ('plan_id','education') and sheet ='2. PMTD Data'
+	) a
+	group by row
+) a where not exists (
+select * from icomparev2.plan_feature where feature_name = 'suitable_for_education' and language = 'zh' and plan_id = a.plan_id 
+)
+
+delete icomparev2.plan_feature where feature_name like 'suitable_for_retirement'
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select plan_id, 'suitable_for_retirement', retirement, 'D', 'text', 1, 'en' from 
+(
+	select row, max(plan_id) as plan_id, max(retirement) as retirement from 
+	(
+	select row, case when fieldname = 'plan_id' then fieldvalue else '' end as plan_id, case when fieldname='retirement' then case when fieldvalue = '-' then 'No' else 'Yes' end end as retirement 
+	from icomparev2.import_pmtd_data where fieldname in ('plan_id','retirement') and sheet ='2. PMTD Data'
+	) a
+	group by row
+) a where not exists (
+select * from icomparev2.plan_feature where feature_name = 'suitable_for_retirement' and language = 'en' and plan_id = a.plan_id 
+)
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select plan_id, 'suitable_for_retirement', retirement, 'D', 'text', 1, 'zh' from 
+(
+	select row, max(plan_id) as plan_id, max(retirement) as retirement from 
+	(
+	select row, case when fieldname = 'plan_id' then fieldvalue else '' end as plan_id, case when fieldname='retirement' then case when fieldvalue = '-' then N'不是' else N'是' end end as retirement 
+	from icomparev2.import_pmtd_data where fieldname in ('plan_id','retirement') and sheet ='2. PMTD Data'
+	) a
+	group by row
+) a where not exists (
+select * from icomparev2.plan_feature where feature_name = 'suitable_for_retirement' and language = 'zh' and plan_id = a.plan_id 
+)
+
+-- update plan_option
+insert into icomparev2.plan_options (plan_id, is_convoy, shelved, prepayment_allowed, gp_only, has_single_premium)
+ select plan_id, is_convoy, shelved, prepayment, PremiumGuaranteed, SinglePay from 
+ (
+	select row
+	, max(case when fieldname ='plan_id' then fieldvalue else '' end) as plan_id
+	, case when max(case when fieldname ='Prepayment' then fieldvalue else '' end) = '-' then 0 else 1 end as Prepayment
+	, case when max(case when fieldname ='Single Pay' then fieldvalue else '' end) = '-' then 0 else 1 end as SinglePay
+	, case when max(case when fieldname ='Premium Guaranteed' then fieldvalue else '' end) = '-' then 0 else 1 end as PremiumGuaranteed
+	, case when max(case when fieldname ='High Net Worth' then fieldvalue else '' end) = '-' then 0 else 1 end as HighNetWorth
+	, case when max(case when  replace(replace(fieldname, char(10),' '),char(13),' ') ='Premium Increase with Age' then fieldvalue else '' end) = '-' then 0 else 1 end as PremiumIncreasewithAge
+	, case when max(case when fieldname = 'status' then fieldvalue else '' end) = 'Shelved' then 1 else 0 end as Shelved 
+	, case when max(case when fieldname = 'status' then fieldvalue else '' end) = 'Non-Convoy' then 0 else 1 end as is_convoy 
+
+	from icomparev2.import_pmtd_data 
+	where replace(replace(fieldname, char(10),' '),char(13),' ') in ('plan_id','Prepayment','Single Pay','Premium Guaranteed','High Net Worth', 'Premium Increase with Age', 'status')
+	and sheet ='2. PMTD Data'
+	group by row
+ ) a where not exists (
+ select * from icomparev2.plan_options where str(plan_id) = str(a.plan_id )
+ )
+
+ update icomparev2.plan_options set is_convoy = a.is_convoy, shelved = a.Shelved, hnw = a.HighNetWorth, prepayment_allowed = a.Prepayment, gp_only = a.PremiumGuaranteed, has_single_premium = a.SinglePay, updatedon = getdate()
+ from 
+ (
+	select row
+	, max(case when fieldname ='plan_id' then fieldvalue else '' end) as plan_id
+	, case when max(case when fieldname ='Prepayment' then fieldvalue else '' end) = '-' then 0 else 1 end as Prepayment
+	, case when max(case when fieldname ='Single Pay' then fieldvalue else '' end) = '-' then 0 else 1 end as SinglePay
+	, case when max(case when fieldname ='Premium Guaranteed' then fieldvalue else '' end) = '-' then 0 else 1 end as PremiumGuaranteed
+	, case when max(case when fieldname ='High Net Worth' then fieldvalue else '' end) = '-' then 0 else 1 end as HighNetWorth
+	, case when max(case when  replace(replace(fieldname, char(10),' '),char(13),' ') ='Premium Increase with Age' then fieldvalue else '' end) = '-' then 0 else 1 end as PremiumIncreasewithAge
+	, case when max(case when fieldname = 'status' then fieldvalue else '' end) = 'Shelved' then 1 else 0 end as Shelved 
+	, case when max(case when fieldname = 'status' then fieldvalue else '' end) = 'Non-Convoy' then 0 else 1 end as is_convoy 
+
+	from icomparev2.import_pmtd_data 
+	where replace(replace(fieldname, char(10),' '),char(13),' ') in ('plan_id','Prepayment','Single Pay','Premium Guaranteed','High Net Worth', 'Premium Increase with Age', 'status')
+	and sheet ='2. PMTD Data'
+	group by row
+) a where str(icomparev2.plan_options.plan_id) = str(a.plan_id )
+
+
+-- update plan_feature , ci_waiting_period
+delete icomparev2.plan_feature where feature_name in ('ci_waiting_period')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_waiting_period',
+max(case when fieldname = 'Waiting Period EN' then fieldvalue else '' end) as waiting_period_en,
+'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Waiting Period EN', 'Waiting Period TC')
+and fieldvalue is not null
+and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Waiting Period EN' then fieldvalue else '' end) <>'' and max(case when fieldname = 'Waiting Period TC' then fieldvalue else '' end)  <>''
+
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_waiting_period',
+max(case when fieldname = 'Waiting Period TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Waiting Period EN', 'Waiting Period TC')
+and fieldvalue is not null
+and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Waiting Period EN' then fieldvalue else '' end) <>'' and max(case when fieldname = 'Waiting Period TC' then fieldvalue else '' end)  <>''
+
+-- update plan_feature, ci_exclusions
+
+delete icomparev2.plan_feature where feature_name in ('ci_exclusions')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_exclusions',
+max(case when fieldname = 'Exclusions EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Exclusions EN', 'Exclusions TC')
+and fieldvalue is not null
+and sheet ='2. PMTD Data'
+ group by row
+having max(case when fieldname = 'Exclusions EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_exclusions',
+max(case when fieldname = 'Exclusions TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Exclusions EN', 'Exclusions TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Exclusions TC' then fieldvalue else '' end)  <>''
+
+
+-- update plan_feature, ci_early_stage_cancer 
+
+delete icomparev2.plan_feature where feature_name in ('ci_early_stage_cancer')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_cancer',
+max(case when fieldname = 'Early Stage Cancer EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Cancer EN', 'Early Stage Cancer TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Early Stage Cancer EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_cancer',
+max(case when fieldname = 'Early Stage Cancer TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Cancer EN', 'Early Stage Cancer TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Early Stage Cancer TC' then fieldvalue else '' end)  <>''
+
+
+-- update plan_feature, ci_early_stage_heart_attack
+
+delete icomparev2.plan_feature where feature_name in ('ci_early_stage_heart_attack')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_heart_attack',
+max(case when fieldname = 'Early Stage Heart Attack EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Heart Attack EN', 'Early Stage Heart Attack TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Early Stage Heart Attack EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_heart_attack',
+max(case when fieldname = 'Early Stage Heart Attack TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Heart Attack EN', 'Early Stage Heart Attack TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Early Stage Heart Attack TC' then fieldvalue else '' end)  <>''
+
+
+-- update plan_feature, ci_early_stage_stroke
+
+delete icomparev2.plan_feature where feature_name in ('ci_early_stage_stroke')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_stroke',
+max(case when fieldname = 'Early Stage Stroke EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Stroke EN', 'Early Stage Stroke TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Early Stage Stroke EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_early_stage_stroke',
+max(case when fieldname = 'Early Stage Stroke TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Early Stage Stroke EN', 'Early Stage Stroke TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Early Stage Stroke TC' then fieldvalue else '' end)  <>''
+
+-- update plan_feature, ci_late_stage_cancer
+
+delete icomparev2.plan_feature where feature_name in ('ci_late_stage_cancer')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_cancer',
+max(case when fieldname = 'Late Stage Cancer EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Cancer EN', 'Late Stage Cancer TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Late Stage Cancer EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_cancer',
+max(case when fieldname = 'Late Stage Cancer TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Cancer EN', 'Late Stage Cancer TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Late Stage Cancer TC' then fieldvalue else '' end)  <>''
+
+
+-- update plan_feature, ci_late_stage_heart_attack
+
+delete icomparev2.plan_feature where feature_name in ('ci_late_stage_heart_attack')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_heart_attack',
+max(case when fieldname = 'Late Stage Heart Attack EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Heart Attack EN', 'Late Stage Heart Attack TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Late Stage Heart Attack EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_heart_attack',
+max(case when fieldname = 'Late Stage Heart Attack TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Heart Attack EN', 'Late Stage Heart Attack TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Late Stage Heart Attack TC' then fieldvalue else '' end)  <>''
+
+
+-- update plan_feature, ci_late_stage_stroke
+delete icomparev2.plan_feature where feature_name in ('ci_late_stage_stroke')
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_stroke',
+max(case when fieldname = 'Late Stage Stroke EN' then fieldvalue else '' end) as waiting_period_en
+,'D','text',1,'en'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Stroke EN', 'Late Stage Stroke TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having max(case when fieldname = 'Late Stage Stroke EN' then fieldvalue else '' end) <>''  
+
+insert into icomparev2.plan_feature (plan_id, feature_name, feature_value, display_type, data_type, is_active, language)
+select 
+max(case when fieldname = 'plan_id' then fieldvalue else '' end) as plan_id,
+'ci_late_stage_stroke',
+max(case when fieldname = 'Late Stage Stroke TC' then fieldvalue else '' end) as waiting_period_zh,
+'D','text',1,'zh'
+from  [icomparev2].[import_pmtd_data] 
+where fieldname in ('plan_id','Late Stage Stroke EN', 'Late Stage Stroke TC')
+and fieldvalue is not null
+ and sheet ='2. PMTD Data'
+group by row
+having  max(case when fieldname = 'Late Stage Stroke TC' then fieldvalue else '' end)  <>''
+
+-- update needs_matrix
+insert into icomparev2.needs_matrix (plan_id, life_protection,healthcare, savings, target_lump_sum,regular_income, is_level,increase_with_age,premiums_benefits_guaranteed,moderate_risk,higher_risk, decision_by_owner,fna_string)
+select * from 
+(
+	select 
+	max(case when fieldname = 'plan_id' then fieldvalue else '' end) as  plan_id,
+	max(case when fieldname = 'Life Protection' then fieldvalue else null end) as  life_protection,
+	max(case when fieldname = 'Healthcare' then fieldvalue else null end) as  healthcare,
+	max(case when fieldname = 'Savings' then fieldvalue else null end) as  Savings,
+	max(case when fieldname = 'Target Lump Sum' then fieldvalue else null end) as  target_lump_sum,
+	max(case when fieldname = 'Regular Income' then fieldvalue else null end) as  regular_income,
+	max(case when fieldname = 'Level' then fieldvalue else null end) as  Level,
+	max(case when fieldname = 'Increase with Age' then fieldvalue else null end) as  increase_with_age,
+	max(case when fieldname = 'Premiums & Benefits Guaranteed' then fieldvalue else null end) as  gp,
+	max(case when fieldname = 'Moderate return/risk' then fieldvalue else null end) as  moderate_risk,
+	max(case when fieldname = 'Higher return/risk (More Underlying Equity)' then fieldvalue else null end) as  high_risk,
+	max(case when fieldname = 'Investment decision/risk borne by Policy Owner' then fieldvalue else null end) as  risk_by_owner,
+	max(case when fieldname = 'Product FNA string (Final)' then fieldvalue else null end ) as fna
+	from icomparev2.import_pmtd_data 
+	where fieldname in ('plan_id','Life Protection','Healthcare','Savings','Target Lump Sum','Regular Income','Level','Increase with Age','Premiums & Benefits Guaranteed','Moderate return/risk','Higher return/risk (More Underlying Equity)','Investment decision/risk borne by Policy Owner','Product FNA string (Final)')
+	 and sheet ='2. PMTD Data'
+	group by row
+	having max(case when fieldname = 'Life Protection' then fieldvalue else '' end)  <= '1'
+) a where not exists (select * from icomparev2.needs_matrix where plan_id = a.plan_id )
+
+
+update icomparev2.needs_matrix set 
+life_protection = b.life_protection,
+healthcare = b.healthcare,
+savings = b.savings,
+target_lump_sum = b.target_lump_sum,
+regular_income = b.regular_income,
+is_level = b.level,
+increase_with_age = b.increase_with_age,
+premiums_benefits_guaranteed = b.gp,
+moderate_risk = b.moderate_risk,
+higher_risk = b.high_risk,
+decision_by_owner = b.risk_by_owner,
+fna_string = b.fna
+from 
+(
+	select 
+	max(case when fieldname = 'plan_id' then fieldvalue else '' end) as  plan_id,
+	max(case when fieldname = 'Life Protection' then fieldvalue else null end) as  life_protection,
+	max(case when fieldname = 'Healthcare' then fieldvalue else null end) as  healthcare,
+	max(case when fieldname = 'Savings' then fieldvalue else null end) as  Savings,
+	max(case when fieldname = 'Target Lump Sum' then fieldvalue else null end) as  target_lump_sum,
+	max(case when fieldname = 'Regular Income' then fieldvalue else null end) as  regular_income,
+	max(case when fieldname = 'Level' then fieldvalue else null end) as  Level,
+	max(case when fieldname = 'Increase with Age' then fieldvalue else null end) as  increase_with_age,
+	max(case when fieldname = 'Premiums & Benefits Guaranteed' then fieldvalue else null end) as  gp,
+	max(case when fieldname = 'Moderate return/risk' then fieldvalue else null end) as  moderate_risk,
+	max(case when fieldname = 'Higher return/risk (More Underlying Equity)' then fieldvalue else null end) as  high_risk,
+	max(case when fieldname = 'Investment decision/risk borne by Policy Owner' then fieldvalue else null end) as  risk_by_owner,
+	max(case when fieldname = 'Product FNA string (Final)' then fieldvalue else null end ) as fna
+	from icomparev2.import_pmtd_data 
+	where fieldname in ('plan_id','Life Protection','Healthcare','Savings','Target Lump Sum','Regular Income','Level','Increase with Age','Premiums & Benefits Guaranteed','Moderate return/risk','Higher return/risk (More Underlying Equity)','Investment decision/risk borne by Policy Owner','Product FNA string (Final)')
+	 and sheet ='2. PMTD Data'
+	group by row
+	having max(case when fieldname = 'Life Protection' then fieldvalue else '' end)  <= '1'
+) b where icomparev2.needs_matrix.plan_id = b.plan_id
+
+-- update icomapre.product_rider 
+
+	update icomparev2.product_rider set generalname = b.generalname, category = ridertype, type = ridersubtype, fna_string=riderfnastring , updated_on = getdate()
+	from 
+	(
+		select 
+		max(case when fieldname = 'id' then fieldvalue else '' end) as  plan_id,
+		max(case when fieldname = 'generalname' then fieldvalue else null end) as  generalname,
+		max(case when fieldname = 'Rider Type' then fieldvalue else null end) as  ridertype,
+		max(case when fieldname = 'Rider Sub-type' then fieldvalue else null end) as  ridersubtype,
+		isnull(max(case when fieldname = 'Rider FNA string' then fieldvalue else null end),'') as  riderfnastring
+		from icomparev2.import_pmtd_data 
+		where fieldname in ('id','generalname','Rider Type','Rider Sub-type','Rider FNA string')
+		and sheet ='3. Rider Data'
+		group by row
+	) b where icomparev2.product_rider.id = b.plan_id
+
+
+END

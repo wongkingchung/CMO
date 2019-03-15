@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import codecs
 import pyodbc
 import openpyxl
@@ -81,7 +82,7 @@ def readExcelSheet(sheet, hr ):
                 col_ended = False
                 
             while not col_ended:
-                row = r - 2
+                row = r - hr
                 fieldname = ws.cell(row=hr, column=c).value
                 fieldvalue = ws.cell(row=r, column=c).value 
                 c = c + 1
@@ -89,20 +90,23 @@ def readExcelSheet(sheet, hr ):
                 if fieldname == None:
                     col_ended = True
                 else:
-                    print row, fieldname, fieldvalue, sheet
+                    print row, fieldname#, fieldvalue, sheet
                     cursor.execute(SQLCommand, row, fieldname, fieldvalue, sheet)
             
     except Exception, error:
-        sendmail('There are errors in importing sheet ' + sheet + '. Please contact IT.' + str(error))
-        print 'There is an error', str(error)
+        sendmail('There are errors in importing sheet ' + sheet + '. Please contact IT. ' + str(error) + ';row='  + str(row) + '; fieldname='+ fieldname )
+        print 'There is an error', str(error) , 'row',str(row), 'fieldname',fieldname, 'fieldvalue',fieldvalue
         os._exit(0)
-            
+        
 #    SQLCommand = "exec " + schema +".sp_update_pmtd_data"
 #    SQLCommand = "exec " + schema + sp
 #    cursor.execute(SQLCommand)
 
 readExcelSheet(sheet,2,)
 readExcelSheet(sheet2,1)
+
+SQLCommand = "exec " + schema +".sp_update_pmtd_data"
+cursor.execute(SQLCommand)
                
 
 cnxn.commit()
